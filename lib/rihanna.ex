@@ -28,6 +28,12 @@ defmodule Rihanna do
   it may have multiple workers processing jobs at the same time so there is no
   guarantee of any ordering in practice.
 
+  ## Scheduling
+
+  You can schedule jobs for deferred execution using `schedule_at/2` and
+  `schedule_at/3`. Jobs scheduled for later execution will run after the due at
+  date but there is no guarantee on exectly when the job will run.
+
   """
 
   @enqueue_help_message """
@@ -72,7 +78,7 @@ defmodule Rihanna do
   You can enqueue a job like so:
 
   ```
-  # schedule job for later execution and return immediately
+  # Enqueue job for later execution and return immediately
   Rihanna.enqueue(MyApp.MyJob, [arg1, arg2])
   ```
   """
@@ -83,6 +89,61 @@ defmodule Rihanna do
 
   def enqueue(_, _) do
     raise ArgumentError, @enqueue_help_message
+  end
+
+  @schedule_at_help_message """
+  Rihanna.schedule_at requires either one argument in the form {mod, fun, args}
+  and a due at (Naive)DateTime struct, or two arguments of a module implementing
+  Rihanna.Job and its arg and a due at (Naive)DateTime struct.
+
+  For example, to run IO.puts("Hello") after midday on 1st July, 2018:
+
+  > Rihanna.schedule_at({IO, :puts, ["Hello"]}, ~N[2018-07-01 12:00:00])
+
+  Or, if you have a job called MyJob that implements the Rihanna.Job behaviour:
+
+  > Rihanna.schedule_at(MyJob, arg, ~N[2018-07-01 12:00:00])
+  """
+
+  @doc """
+  Schedule a job specified as a simple mod-fun-args tuple to run after a due date.
+
+  ## Example
+
+      Rihanna.schedule_at({IO, :puts, ["Umbrella-ella-ella"]}, ~N[2018-07-01 12:00:00])
+  """
+  @spec schedule_at({module, atom, list()}, DateTime.t() | NaiveDateTime.t()) ::
+          {:ok, Rihanna.Job.t()}
+  def schedule_at(term = {mod, fun, args}, due_at)
+      when is_atom(mod) and is_atom(fun) and is_list(args) do
+    Rihanna.Job.enqueue(term, due_at)
+  end
+
+  def schedule_at(_term, _due_at) do
+    raise ArgumentError, @schedule_at_help_message
+  end
+
+  @doc """
+  Schedule a job specified as a module and one argument to run after a due date.
+
+  It is expected that the module implements the `Rihanna.Job` behaviour and
+  defines a function `c:Rihanna.Job.perform/1`.
+
+  The argument may be anything.
+
+  See `Rihanna.Job` for more on how to implement your own jobs.
+
+  ## Example
+
+      Rihanna.schedule_at(MyApp.MyJob, [arg1, arg2], ~N[2018-07-01 12:00:00])
+  """
+  @spec schedule_at(module, list(), DateTime.t() | NaiveDateTime.t()) :: {:ok, Rihanna.Job.t()}
+  def schedule_at(mod, arg, due_at) when is_atom(mod) do
+    Rihanna.Job.enqueue({mod, arg}, due_at)
+  end
+
+  def schedule_at(_mod, _arg, _due_at) do
+    raise ArgumentError, @schedule_at_help_message
   end
 
   @doc """
