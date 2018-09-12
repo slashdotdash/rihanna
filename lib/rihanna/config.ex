@@ -48,6 +48,21 @@ defmodule Rihanna.Config do
   end
 
   @doc """
+  The query request timeout, in milliseconds, used to lock jobs.
+
+  Configured to 15 seconds by default (`15_000`).
+
+  ## Example
+
+  ```
+  config :rihanna, query_timeout: 60_000
+  ```
+  """
+  def query_timeout() do
+    Application.get_env(:rihanna, :query_timeout, 15_000)
+  end
+
+  @doc """
   The maximum number of simultaneously executing workers for a dispatcher.
 
   50 is chosen as a sensible default. Tuning this might increase or decrease

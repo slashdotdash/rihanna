@@ -83,7 +83,8 @@ defmodule Rihanna.Job do
           VALUES ($1, $2, $3)
           RETURNING #{@sql_fields}
         """,
-        [serialized_term, now, due_at]
+        [serialized_term, now, due_at],
+        query_opts()
       )
 
     case result do
@@ -149,7 +150,8 @@ defmodule Rihanna.Job do
           WHERE
             failed_at IS NOT NULL AND id = $2
         """,
-        [now, job_id]
+        [now, job_id],
+        query_opts()
       )
 
     case result.num_rows do
@@ -245,7 +247,7 @@ defmodule Rihanna.Job do
       LIMIT $2
     """
 
-    %{rows: rows} = Postgrex.query!(pg, lock_jobs, [classid(), n, exclude_ids])
+    %{rows: rows} = Postgrex.query!(pg, lock_jobs, [classid(), n, exclude_ids], query_opts())
 
     Rihanna.Job.from_sql(rows)
   end
@@ -259,7 +261,8 @@ defmodule Rihanna.Job do
           DELETE FROM "#{table()}"
           WHERE id = $1;
         """,
-        [job_id]
+        [job_id],
+        query_opts()
       )
 
     release_lock(pg, job_id)
@@ -280,7 +283,8 @@ defmodule Rihanna.Job do
           WHERE
             id = $3
         """,
-        [now, fail_reason, job_id]
+        [now, fail_reason, job_id],
+        query_opts()
       )
 
     release_lock(pg, job_id)
@@ -301,6 +305,10 @@ defmodule Rihanna.Job do
     Rihanna.Config.pg_advisory_lock_class_id()
   end
 
+  def query_opts() do
+    [timeout: Rihanna.Config.query_timeout()]
+  end
+
   defp release_lock(pg, job_id) when is_pid(pg) and is_integer(job_id) do
     %{rows: [[true]]} =
       Postgrex.query!(
@@ -308,7 +316,8 @@ defmodule Rihanna.Job do
         """
           SELECT pg_advisory_unlock($1, $2);
         """,
-        [classid(), job_id]
+        [classid(), job_id],
+        query_opts()
       )
   end
 end
